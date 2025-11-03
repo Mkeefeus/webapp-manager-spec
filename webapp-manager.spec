@@ -1,58 +1,95 @@
-%define debug_package %{nil}
+Name:           webapp-manager
+Version:        1.0.0
+Release:        1%{?dist}
+Summary:        Run websites as if they were apps (KDE version)
 
-Name:     webapp-manager
-Summary: Web Application Manager
-Version:  master.mint22
-Release:  2%{?dist}
-Group: admin
-License: GPLv3
-Source0: https://github.com/linuxmint/%{name}/archive/refs/tags/%{version}.tar.gz
+License:        GPL-3.0-or-later
+URL:            https://github.com/mkeefeus/webapp-manager
+Source0:        %{name}-%{version}.tar.gz
 
-BuildArch:	noarch
-BuildRequires: make
+BuildArch:      noarch
+
 BuildRequires:  python3-devel
-BuildRequires: desktop-file-utils
-BuildRequires: perl-Locale-Msgfmt
-BuildRequires:	gettext
-Requires:	python
-Requires:	python3-beautifulsoup4
-Requires:	python3-configobj
-Requires:	python3-gobject
-Requires:	python3-pillow
-Requires:	python3-setproctitle
-Requires:	python3-tldextract
-Requires:	xapps
-Requires: dconf
-Requires: python3
-Requires: python3-configobj
-Requires: python3-gobject
-Requires: python3-setproctitle
-Requires: python3-tldextract
-Requires: xapps
+BuildRequires:  gettext
+BuildRequires:  desktop-file-utils
+BuildRequires:  make
 
+Requires:       python3
+Requires:       python3-pyside6
+Requires:       python3-requests
+Requires:       python3-pillow
+Requires:       python3-beautifulsoup4
+Requires:       python3-setproctitle
+Requires:       python3-tldextract
 
 %description
-Launch websites as if they were apps.
+Run websites as if they were apps. This is a KDE/Qt version of webapp-manager
+that allows you to create desktop entries for web applications that run in
+isolated browser profiles.
 
 %prep
-%setup -q
+%autosetup
+
+# Replace version placeholder
+sed -i 's/@VERSION@/%{version}/g' usr/lib/webapp-manager/webapp-manager.py
 
 %build
-make %{?_smp_mflags}
+# Build translation files
+make buildmo
 
 %install
-mkdir -p %{buildroot}
-cp -a usr %{buildroot}
+# Create directory structure
+install -d %{buildroot}%{_bindir}
+install -d %{buildroot}%{_datadir}/applications
+install -d %{buildroot}%{_datadir}/icons/hicolor/scalable/apps
+install -d %{buildroot}%{_datadir}/icons/hicolor/scalable/categories
+install -d %{buildroot}%{_datadir}/%{name}
+install -d %{buildroot}%{_datadir}/%{name}/firefox/profile/chrome
+install -d %{buildroot}%{_prefix}/lib/%{name}
+
+# Install executable
+install -m 755 usr/bin/webapp-manager %{buildroot}%{_bindir}/
+
+# Install Python modules
+install -m 644 usr/lib/webapp-manager/common.py %{buildroot}%{_prefix}/lib/%{name}/
+install -m 755 usr/lib/webapp-manager/webapp-manager.py %{buildroot}%{_prefix}/lib/%{name}/
+
+# Install desktop file
+desktop-file-install --dir=%{buildroot}%{_datadir}/applications \
+    usr/share/applications/webapp-manager.desktop
+
+# Install Firefox profile files
+install -m 644 usr/share/webapp-manager/firefox/userChrome-with-navbar.css \
+    %{buildroot}%{_datadir}/%{name}/firefox/
+install -m 644 usr/share/webapp-manager/firefox/profile/search.json.mozlz4 \
+    %{buildroot}%{_datadir}/%{name}/firefox/profile/
+install -m 644 usr/share/webapp-manager/firefox/profile/user.js \
+    %{buildroot}%{_datadir}/%{name}/firefox/profile/
+install -m 644 usr/share/webapp-manager/firefox/profile/chrome/userChrome.css \
+    %{buildroot}%{_datadir}/%{name}/firefox/profile/chrome/
+
+# Install icons
+for size in scalable; do
+    if [ -d usr/share/icons/hicolor/$size/apps ]; then
+        cp -r usr/share/icons/hicolor/$size/apps/* \
+            %{buildroot}%{_datadir}/icons/hicolor/$size/apps/ || true
+    fi
+    if [ -d usr/share/icons/hicolor/$size/categories ]; then
+        cp -r usr/share/icons/hicolor/$size/categories/* \
+            %{buildroot}%{_datadir}/icons/hicolor/$size/categories/ || true
+    fi
+done
+
+# Install translations
+cp -r usr/share/locale %{buildroot}%{_datadir}/
 
 %files
-%{_bindir}/%{name}
-/usr/lib/%{name}
-%{_datadir}/applications/kde4/%{name}.desktop
-%{_datadir}/applications/%{name}.desktop
-#%{_datadir}/doc/%{name}
-%{_datadir}/glib-2.0/schemas/org.x.%{name}.gschema.xml
-%{_datadir}/icons/hicolor/scalable/apps/%{name}.svg
-%{_datadir}/locale/*/LC_MESSAGES/%{name}.mo
-%{_datadir}/%{name}
-%{_datadir}/desktop-directories/webapps-webapps.directory
-%{_datadir}/icons/hicolor/scalable/categories/applications-webapps.svg
+%license LICENSE
+%doc README.md
+%{_bindir}/webapp-manager
+%{_prefix}/lib/%{name}/
+%{_datadir}/applications/webapp-manager.desktop
+%{_datadir}/%{name}/
+%{_datadir}/icons/hicolor/scalable/apps/*
+%{_datadir}/icons/hicolor/scalable/categories/*
+%{_datadir}/locale/*/LC_MESSAGES/webapp-manager.mo
